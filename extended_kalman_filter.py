@@ -28,7 +28,8 @@ class Extended_Kalman_Filter():
 
     def update_non_linear_measurement(self, distance, landmark):
         x , y = self.landmarks[landmark]
-        self.H = np.array([[(self.mu[0][0] - x)/distance, float(self.mu[1][0]-y)/distance, 0, 0]])
+        dist = math.sqrt((self.mu[0]-x)**2 + (self.mu[1]-y)**2)
+        self.H = np.array([[(self.mu[0][0] - x)/dist, float(self.mu[1][0]-y)/dist, 0, 0]])
         # print((self.H @ self.sigma @ self.H.T).shape, self.NLQ.shape, self.H @ self.sigma @ self.H.T + self.NLQ)
         kalman_gain = self.sigma @ self.H.T @ (1/(self.H @ self.sigma @ self.H.T + self.NLQ))
         
@@ -125,6 +126,7 @@ def simulate(action = "zero", estimate=False, accident_times=[], counter_size=20
     true_all_ys = []
 
     simulator = PlaneSimulator(30, -70, 0.1, 0.1)
+    # simulator = PlaneSimulator(30, -70, 0.5, 0.5)
     # simulator = PlaneSimulator(0, 0, 0.1, 0.1)
     # simulator = PlaneSimulator(30, -70, 4*np.cos(0.3), 4*np.sin(0.3))
     # simulator = PlaneSimulator(30, -70, 0.5*np.cos(0.75), 0.5*np.sin(0.74))
@@ -151,6 +153,8 @@ def simulate(action = "zero", estimate=False, accident_times=[], counter_size=20
             u = np.array([[0, 0]]).T
         else:
             u =  np.array([[-0.001*true_all_xs[-1], -0.0005*true_all_ys[-1]]]).T
+        # u =  np.array([[0, 0]]).T
+
         simulator.forward_step(u)
         if estimate:
             simulator.estimator.update_motion(u)
@@ -210,5 +214,5 @@ def simulate(action = "zero", estimate=False, accident_times=[], counter_size=20
 # simulate(action = "sine-cos", estimate=True, save_name="trajectory_q2.png")
 
 
-simulate(action = "sine-cos", estimate=True, save_name="trajectory_q2_2.png", add_landmarks=[(-50, 50), (50, 50), (40, -50), (-50, -50)])
+simulate(action = "sine-cos", estimate=True, save_name="trajectory_q2_2_2.png", add_landmarks=[(-50, 50), (50, 50), (40, -50), (-50, -50)])
 

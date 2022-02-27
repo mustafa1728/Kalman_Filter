@@ -173,55 +173,103 @@ def simulate(action = "zero", estimate=False, accident_times=[], counter_size=20
     plt.close()
 
 
-def simulate_f(no_planes=5, n_estimators=10):
+def simulate_f(no_planes=5, n_estimators=10, save_name="data_assoc.png"):
     simulators = []
+    true_all_xs = {str(x):[]  for x in range(no_planes)}
+    true_all_ys = {str(x):[]  for x in range(no_planes)}
+    
+    est_all_xs = {str(x):[]  for x in range(no_planes)}
+    est_all_ys = {str(x):[]  for x in range(no_planes)}
+
+    variances = {str(x): []  for x in range(no_planes)}
     for  i in range(no_planes):
-        simulator =  PlaneSimulator(0, 0, 1, 1, n_estimators=n_estimators)
+        if  i == 0:
+            x, y = 0, 0
+        else:
+            x, y = 1000, 1000
+        simulator =  PlaneSimulator(x, y, 0, 0, n_estimators=n_estimators)
         simulator.set_kalman_filter()
         simulators.append(simulator)
 
-    for i in range(200):
+    for time in range(200):
         
-        u = np.array([[np.sin(i), np.cos(i)]]).T
+        u = np.array([[np.sin(time), np.cos(time)]]).T
         observations  =  []
         for simulator in simulators:
-            simulator.update_time()
             simulator.forward_step(u)
-            simulator.estimator.update_motion(u)
+            for j in range(n_estimators):
+                simulator.estimators[j].update_motion(u)
             observation = simulator.observation_step()
             observations.append(observation)
 
-        observations = np.random.shuffle(observations)
+        np.random.shuffle(observations)
         
         all_permutations_results = {}
+        observations_ids = list(range(len(observations)))
         for i in range(n_estimators):
-            for perm in multiset_permutations(observations):
+            for iter_id, perm_id in enumerate(multiset_permutations(observations_ids)):
+                perm = [observations[it] for it in perm_id]
                 prob = 0.0
                 for j in range(no_planes):
-                    prob += simulators[j].estimators[i].measurement_probability(perm[j])
-                all_permutations_results[(i,perm)] = prob
-        all_permutations_results = {k: v for k, v in sorted(all_permutations_results.items(), key=lambda item: item[1])}
+                    prob *= simulators[j].estimators[i].measurement_probability(perm[j])
+                all_permutations_results[(i, iter_id)] = prob, perm
+        all_permutations_results = {k: v for k, v in sorted(all_permutations_results.items(), key=lambda item: item[1][0])}
 
         
         old_simulators = copy.deepcopy(simulators)
-        cnt = 0
-        for (estimator,_) in all_permutations_results:
-            for j in range(no_planes):
-                simulators[j].estimators[cnt] = copy.deepcopy(old_simulators[j].estimators[estimator])
-            cnt += 1
-            if cnt == n_estimators:
-                break
+        # cnt = {str(i): 0 for i in range(no_planes)}
+
+        # for (estimator, _) in all_permutations_results.keys():
+        #     for j in range(no_planes):
+        #         simulators[j].estimators[cnt] = copy.deepcopy(old_simulators[j].estimators[estimator])
+        #     cnt += 1
+        #     if cnt == n_estimators:
+        #         break
 
         cnt = 0
-        for (estimator,perm) in all_permutations_results:
+        for (estimator, perm) in all_permutations_results.keys():
+            perm = all_permutations_results[estimator, perm][1]
             for j in range(no_planes):
                 simulators[j].estimators[cnt].update_measurement(perm[j])
             cnt += 1
             if cnt == n_estimators:
                 break
+
+        for i in range(no_planes):
+            true_pos = simulators[i].state[:2, :]
+
+            true_all_xs[str(i)].append(true_pos[0, 0])
+            true_all_ys[str(i)].append(true_pos[1, 0])
+
+            mean, var = simulators[i].estimators[0].get_state()
+
+            est_all_xs[str(i)].append(mean[0, 0])
+            est_all_ys[str(i)].append(mean[1, 0])
+            variances[str(i)].append(var)
+
+        
                 
         for simulator in simulators:
             simulator.update_time()
+    
+    
+    for i in range(no_planes):
+        ax = plt.subplot(111)
+        ax.plot(true_all_xs[str(i)], true_all_ys[str(i)], label="True Trajectory {}".format(i+1))
+
+        ax.plot(est_all_xs[str(i)], est_all_ys[str(i)], label="Estimated Trajectory {}".format(i+1))
+        # for j in range(len(variances[str(i)])):
+        #     ell = Ellipse(xy=(est_all_xs[str(i)][j], est_all_ys[str(i)][j]),
+        #                 width=variances[str(i)][j][0, 0], height=variances[str(i)][j][1, 1],
+        #                 angle=np.rad2deg(np.arctan(variances[str(i)][j][0, 1]/np.sqrt(variances[str(i)][j][0, 0] * variances[str(i)][j][1, 1]))),
+        #                 alpha=0.2
+        #             )
+        #     # ell.set_facecolor('b', )
+        #     ax.add_artist(ell)
+        # break
+    plt.legend()
+    plt.savefig(save_name, dpi=300)
+    plt.close()
 
 
     
@@ -231,14 +279,16 @@ def simulate_f(no_planes=5, n_estimators=10):
 
 
 
-# ## part a
-simulate(save_name="trajectory_parta.png")
+# # ## part a
+# simulate(save_name="trajectory_parta.png")
 
-# ## part b and c
-simulate(action = "sine-cos", estimate=True, save_name="trajectory_partbc.png")
+# # ## part b and c
+simulate(action = "sine-cos", estimate=True, save_name="trajectory_partbc_elip.png")
 
-# ## part d and e
-simulate(action = "sine-cos", estimate=True, accident_times=[10, 60], counter_size=20, save_name="trajectory_partde.png")
+# # ## part d and e
+# simulate(action = "sine-cos", estimate=True, accident_times=[10, 60], counter_size=20, save_name="trajectory_partde.png")
 
 
 
+
+# simulate_f(no_planes=2, n_estimators=10)
