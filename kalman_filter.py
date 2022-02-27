@@ -1,3 +1,5 @@
+from sympy.utilities.iterables import multiset_permutations
+import copy
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.patches import Ellipse
@@ -22,14 +24,20 @@ class Kalman_Filter():
     def update_motion(self, u):
         self.mu = self.A @ self.mu + self.B @ u
         self.sigma = self.A @ self.sigma @ self.A.T + self.R
+    
+    def measurement_probability(self,z):
+        cov = self.C @ self.sigma @ self.C.T + self.Q
+        mu = self.C @ self.mu
+        part1 = 1 / ( ((2* np.pi)**(len(mu)/2)) * (np.linalg.det(cov)**(1/2)) )
+        part2 = (-1/2) * ((z-mu).T.dot(np.linalg.inv(cov))).dot((z-mu))
+        return float(part1 * np.exp(part2))
         
-
     def get_state(self):
         return self.mu, self.sigma
 
 
 class PlaneSimulator():
-    def  __init__(self, x0, y0, vx0, vy0):
+    def  __init__(self, x0, y0, vx0, vy0, n_estimators=None):
         self.state = np.array([[x0, y0, vx0, vy0]]).T
         self.t = 0
         self.del_t = 1
@@ -47,6 +55,7 @@ class PlaneSimulator():
 
         self.R = np.diag((1, 1, 0.0001, 0.0001))
         self.Q = np.diag((100, 100))
+        self.n_estimators = n_estimators
 
     def update_time(self):
         self.t = self.t + self.del_t
@@ -63,19 +72,35 @@ class PlaneSimulator():
         self.observation = self.C @ self.state + noise.reshape(2, 1)
         return self.observation
 
-    def set_estimator_matrices(self):
-        self.estimator.A = self.A
-        self.estimator.B = self.B
-        self.estimator.C = self.C
-        self.estimator.R = self.R
-        self.estimator.Q = self.Q
+    def set_estimator_matrices(self,  i=None):
+        if  i is None:
+            self.estimator.A = self.A
+            self.estimator.B = self.B
+            self.estimator.C = self.C
+            self.estimator.R = self.R
+            self.estimator.Q = self.Q
+        else:
+            self.estimators[i].A = self.A
+            self.estimators[i].B = self.B
+            self.estimators[i].C = self.C
+            self.estimators[i].R = self.R
+            self.estimators[i].Q = self.Q
 
     def set_kalman_filter(self):
-        self.estimator = Kalman_Filter()
-        self.set_estimator_matrices()
+        if self.n_estimators  is None:
+            self.estimator = Kalman_Filter()
+            self.set_estimator_matrices()
 
-        self.estimator.mu = np.zeros((4, 1))
-        self.estimator.sigma = np.diag((0.0001, 0.0001, 0.0001, 0.0001))
+            self.estimator.mu = self.state
+            self.estimator.sigma = np.diag((0.0001, 0.0001, 0.0001, 0.0001))
+        else:
+            self.estimators = [Kalman_Filter() for i in range(self.n_estimators)]
+            for i in range(self.n_estimators):
+                self.set_estimator_matrices(i)
+                self.estimators[i].mu = self.state
+                self.estimators[i].sigma = np.diag((0.0001, 0.0001, 0.0001, 0.0001))
+
+
 
 
 
@@ -147,6 +172,62 @@ def simulate(action = "zero", estimate=False, accident_times=[], counter_size=20
     plt.savefig(save_name, dpi=300)
     plt.close()
 
+
+def simulate_f(no_planes=5, n_estimators=10):
+    simulators = []
+    for  i in range(no_planes):
+        simulator =  PlaneSimulator(0, 0, 1, 1, n_estimators=n_estimators)
+        simulator.set_kalman_filter()
+        simulators.append(simulator)
+
+    for i in range(200):
+        
+        u = np.array([[np.sin(i), np.cos(i)]]).T
+        observations  =  []
+        for simulator in simulators:
+            simulator.update_time()
+            simulator.forward_step(u)
+            simulator.estimator.update_motion(u)
+            observation = simulator.observation_step()
+            observations.append(observation)
+
+        observations = np.random.shuffle(observations)
+        
+        all_permutations_results = {}
+        for i in range(n_estimators):
+            for perm in multiset_permutations(observations):
+                prob = 0.0
+                for j in range(no_planes):
+                    prob += simulators[j].estimators[i].measurement_probability(perm[j])
+                all_permutations_results[(i,perm)] = prob
+        all_permutations_results = {k: v for k, v in sorted(all_permutations_results.items(), key=lambda item: item[1])}
+
+        
+        old_simulators = copy.deepcopy(simulators)
+        cnt = 0
+        for (estimator,_) in all_permutations_results:
+            for j in range(no_planes):
+                simulators[j].estimators[cnt] = copy.deepcopy(old_simulators[j].estimators[estimator])
+            cnt += 1
+            if cnt == n_estimators:
+                break
+
+        cnt = 0
+        for (estimator,perm) in all_permutations_results:
+            for j in range(no_planes):
+                simulators[j].estimators[cnt].update_measurement(perm[j])
+            cnt += 1
+            if cnt == n_estimators:
+                break
+                
+        for simulator in simulators:
+            simulator.update_time()
+
+
+    
+        
+        
+    
 
 
 
