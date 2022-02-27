@@ -106,11 +106,14 @@ class PlaneSimulator():
 
 
 
-def simulate(action = "zero", estimate=False, accident_times=[], counter_size=20, save_name="trajectory.png"):
+def simulate(action = "zero", estimate=False, accident_times=[], counter_size=20, save_name="trajectory.png", save_velocity=True):
     true_all_xs = []
     true_all_ys = []
     obs_all_xs = []
     obs_all_ys = []
+
+    true_all_vx = []
+    true_all_vy = []
 
 
     simulator = PlaneSimulator(0, 0, 1, 1)
@@ -118,6 +121,8 @@ def simulate(action = "zero", estimate=False, accident_times=[], counter_size=20
         simulator.set_kalman_filter()
         est_all_xs = []
         est_all_ys = []
+        est_all_vx = []
+        est_all_vy = []
         variances = []
     accident_counter = -1
     for i in range(200):
@@ -140,9 +145,13 @@ def simulate(action = "zero", estimate=False, accident_times=[], counter_size=20
             accident_counter -= 1
 
         true_pos = simulator.state[:2, :]
+        true_vel = simulator.state[2:, :]
 
         true_all_xs.append(true_pos[0, 0])
         true_all_ys.append(true_pos[1, 0])
+
+        true_all_vx.append(true_vel[0, 0])
+        true_all_vy.append(true_vel[1, 0])
 
         obs_all_xs.append(observation[0, 0])
         obs_all_ys.append(observation[1, 0])
@@ -151,6 +160,8 @@ def simulate(action = "zero", estimate=False, accident_times=[], counter_size=20
 
             est_all_xs.append(mean[0, 0])
             est_all_ys.append(mean[1, 0])
+            est_all_vx.append(mean[2, 0])
+            est_all_vy.append(mean[3, 0])
             variances.append(var)
             
     ax = plt.subplot(111)
@@ -171,6 +182,15 @@ def simulate(action = "zero", estimate=False, accident_times=[], counter_size=20
     plt.legend()
     plt.savefig(save_name, dpi=300)
     plt.close()
+
+    if save_velocity:
+        fig = plt.figure()
+        ax = plt.axes(projection='3d')
+        time = list(range(len(est_all_vx)))
+        ax.plot3D(true_all_vx, true_all_vy, time, 'b', label="True Velocities")
+        ax.plot3D(est_all_vx, est_all_vy, time, 'g', label="Estimated Velocities")
+        plt.legend()
+        plt.savefig("plt_velocities.png")
 
 
 def simulate_f(no_planes=2, n_estimators=10, save_name="data_assoc.png"):
@@ -294,9 +314,9 @@ def simulate_f(no_planes=2, n_estimators=10, save_name="data_assoc.png"):
 # simulate(action = "sine-cos", estimate=True, save_name="trajectory_partbc_elip.png")
 
 # # ## part d and e
-# simulate(action = "sine-cos", estimate=True, accident_times=[10, 60], counter_size=20, save_name="trajectory_partde.png")
+simulate(action = "sine-cos", estimate=True, accident_times=[10, 60], counter_size=20, save_name="trajectory_partde.png", save_velocity=True)
 
 
 
 
-simulate_f(no_planes=5, n_estimators=10)
+# simulate_f(no_planes=5, n_estimators=10)
