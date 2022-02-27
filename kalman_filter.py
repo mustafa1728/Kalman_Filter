@@ -101,11 +101,6 @@ def simulate(action = "zero", estimate=False, accident_times=[], counter_size=20
         if simulator.t in accident_times:
             accident_counter = counter_size
 
-        
-        
-            
-
-
         if action == "sine-cos":
             u = np.array([[np.sin(i), np.cos(i)]]).T
         else:
@@ -132,12 +127,7 @@ def simulate(action = "zero", estimate=False, accident_times=[], counter_size=20
             est_all_xs.append(mean[0, 0])
             est_all_ys.append(mean[1, 0])
             variances.append(var)
-
-
-
-        
-        
-
+            
     ax = plt.subplot(111)
     ax.plot(true_all_xs, true_all_ys, label="True Trajectory")
     if not estimate or len(accident_times) == 0:
@@ -168,4 +158,6 @@ simulate(action = "sine-cos", estimate=True, save_name="trajectory_partbc.png")
 
 # ## part d and e
 simulate(action = "sine-cos", estimate=True, accident_times=[10, 60], counter_size=20, save_name="trajectory_partde.png")
+
+
 
