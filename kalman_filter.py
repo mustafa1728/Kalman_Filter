@@ -3,6 +3,7 @@ import copy
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.patches import Ellipse
+import random
 
 class Kalman_Filter():
     def __init__(self):
@@ -90,7 +91,6 @@ class PlaneSimulator():
         if self.n_estimators  is None:
             self.estimator = Kalman_Filter()
             self.set_estimator_matrices()
-
             self.estimator.mu = self.state
             self.estimator.sigma = np.diag((0.0001, 0.0001, 0.0001, 0.0001))
         else:
@@ -173,7 +173,7 @@ def simulate(action = "zero", estimate=False, accident_times=[], counter_size=20
     plt.close()
 
 
-def simulate_f(no_planes=5, n_estimators=10, save_name="data_assoc.png"):
+def simulate_f(no_planes=2, n_estimators=10, save_name="data_assoc.png"):
     simulators = []
     true_all_xs = {str(x):[]  for x in range(no_planes)}
     true_all_ys = {str(x):[]  for x in range(no_planes)}
@@ -182,17 +182,23 @@ def simulate_f(no_planes=5, n_estimators=10, save_name="data_assoc.png"):
     est_all_ys = {str(x):[]  for x in range(no_planes)}
 
     variances = {str(x): []  for x in range(no_planes)}
+
+    x , y = random.randint(0,100) , random.randint(0,100)
+    # vx , vy = random.randint(-10,10) , random.randint(-10,10)
     for  i in range(no_planes):
-        if  i == 0:
-            x, y = 0, 0
-        else:
-            x, y = 1000, 1000
-        simulator =  PlaneSimulator(x, y, 0, 0, n_estimators=n_estimators)
+        # if  i == 0:
+        #     x, y = 0, 0
+        # else:
+        #     x, y = 1000, 1000
+        # x , y = random.randint(0,10) , random.randint(0,10)
+        # vx , vy = random.randint(-1,1) , random.randint(-1,1)
+        vx , vy = random.randint(-10,10) , random.randint(-10,10)
+        simulator =  PlaneSimulator(x, y, vx, vy, n_estimators=n_estimators)
         simulator.set_kalman_filter()
         simulators.append(simulator)
 
-    for time in range(200):
-        
+    for time in range(50):
+        print(time)
         u = np.array([[np.sin(time), np.cos(time)]]).T
         observations  =  []
         for simulator in simulators:
@@ -202,7 +208,7 @@ def simulate_f(no_planes=5, n_estimators=10, save_name="data_assoc.png"):
             observation = simulator.observation_step()
             observations.append(observation)
 
-        np.random.shuffle(observations)
+        # np.random.shuffle(observations)
         
         all_permutations_results = {}
         observations_ids = list(range(len(observations)))
@@ -215,16 +221,18 @@ def simulate_f(no_planes=5, n_estimators=10, save_name="data_assoc.png"):
                 all_permutations_results[(i, iter_id)] = prob, perm
         all_permutations_results = {k: v for k, v in sorted(all_permutations_results.items(), key=lambda item: item[1][0])}
 
+
+
         
         old_simulators = copy.deepcopy(simulators)
-        # cnt = {str(i): 0 for i in range(no_planes)}
+        cnt = 0
 
-        # for (estimator, _) in all_permutations_results.keys():
-        #     for j in range(no_planes):
-        #         simulators[j].estimators[cnt] = copy.deepcopy(old_simulators[j].estimators[estimator])
-        #     cnt += 1
-        #     if cnt == n_estimators:
-        #         break
+        for (estimator,perm) in all_permutations_results.keys():
+            for j in range(no_planes):
+                simulators[j].estimators[cnt] = copy.deepcopy(old_simulators[j].estimators[estimator])
+            cnt += 1
+            if cnt == n_estimators:
+                break
 
         cnt = 0
         for (estimator, perm) in all_permutations_results.keys():
@@ -283,7 +291,7 @@ def simulate_f(no_planes=5, n_estimators=10, save_name="data_assoc.png"):
 # simulate(save_name="trajectory_parta.png")
 
 # # ## part b and c
-simulate(action = "sine-cos", estimate=True, save_name="trajectory_partbc_elip.png")
+# simulate(action = "sine-cos", estimate=True, save_name="trajectory_partbc_elip.png")
 
 # # ## part d and e
 # simulate(action = "sine-cos", estimate=True, accident_times=[10, 60], counter_size=20, save_name="trajectory_partde.png")
@@ -291,4 +299,4 @@ simulate(action = "sine-cos", estimate=True, save_name="trajectory_partbc_elip.p
 
 
 
-# simulate_f(no_planes=2, n_estimators=10)
+simulate_f(no_planes=5, n_estimators=10)
