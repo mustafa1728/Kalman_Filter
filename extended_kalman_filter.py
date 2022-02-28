@@ -121,9 +121,11 @@ class PlaneSimulator():
 
 
 
-def simulate(action = "zero", estimate=False, accident_times=[], counter_size=20, save_name="trajectory.png", add_landmarks=[]):
+def simulate(action = "zero", estimate=False, accident_times=[], counter_size=20, save_name="trajectory.png", add_landmarks=[], save_velocity=False):
     true_all_xs = []
     true_all_ys = []
+    true_all_vx = []
+    true_all_vy = []
 
     simulator = PlaneSimulator(30, -70, 0.1, 0.1)
     # simulator = PlaneSimulator(30, -70, 0.5, 0.5)
@@ -137,6 +139,8 @@ def simulate(action = "zero", estimate=False, accident_times=[], counter_size=20
         simulator.set_kalman_filter()
         est_all_xs = []
         est_all_ys = []
+        est_all_vx = []
+        est_all_vy = []
         variances = []
     accident_counter = -1
     for i in range(800):
@@ -147,12 +151,15 @@ def simulate(action = "zero", estimate=False, accident_times=[], counter_size=20
 
         if action == "sine-cos":
             u = np.array([[np.sin(i), np.cos(i)]]).T
+        elif action == "circle":
+            if len(true_all_xs) == 0:
+                u = np.array([[0, 0]]).T
+            else:
+                u =  np.array([[-0.001*true_all_xs[-1], -0.0005*true_all_ys[-1]]]).T
         else:
             u = np.array([[0, 0]]).T
-        if len(true_all_xs) == 0:
-            u = np.array([[0, 0]]).T
-        else:
-            u =  np.array([[-0.001*true_all_xs[-1], -0.0005*true_all_ys[-1]]]).T
+
+        
         # u =  np.array([[0, 0]]).T
 
         simulator.forward_step(u)
@@ -168,15 +175,21 @@ def simulate(action = "zero", estimate=False, accident_times=[], counter_size=20
 
         est_all_xs.append(mean[0, 0])
         est_all_ys.append(mean[1, 0])
+        est_all_vx.append(mean[2, 0])
+        est_all_vy.append(mean[3, 0])
         variances.append(var)
 
         if accident_counter > 0:
             accident_counter -= 1
 
         true_pos = simulator.state[:2, :]
+        true_vel = simulator.state[2:, :]
 
         true_all_xs.append(true_pos[0, 0])
         true_all_ys.append(true_pos[1, 0])
+
+        true_all_vx.append(true_vel[0, 0])
+        true_all_vy.append(true_vel[1, 0])
 
 
     ax = plt.subplot(111)
@@ -202,17 +215,20 @@ def simulate(action = "zero", estimate=False, accident_times=[], counter_size=20
     plt.savefig(save_name, dpi=300)
     plt.close()
 
+    if save_velocity and estimate:
+        fig = plt.figure()
+        ax = plt.axes(projection='3d')
+        time = list(range(len(est_all_vx)))
+        ax.plot3D(true_all_vx, true_all_vy, time, 'b', label="True Velocities")
+        ax.plot3D(est_all_vx, est_all_vy, time, 'g', label="Estimated Velocities")
+        plt.legend()
+        plt.savefig("plt_velocities_extended.png")
 
 
 
-# ## part a
-# simulate(save_name="trajectory_parta.png")
-
-# ## part b and c
-# simulate(action = "sine-cos", estimate=True, accident_times=[10, 60], counter_size=20, save_name="trajectory_partde.png")
-
-# simulate(action = "sine-cos", estimate=True, save_name="trajectory_q2.png")
 
 
-simulate(action = "sine-cos", estimate=True, save_name="trajectory_q2_2_2.png", add_landmarks=[(-50, 50), (50, 50), (40, -50), (-50, -50)])
+# simulate(action = "zero", estimate=True, save_name="trajectory_q2_1.png", add_landmarks=[])
+# simulate(action = "zero", estimate=True, save_name="trajectory_q2_2.png", add_landmarks=[(-50, 50), (50, 50), (40, -50), (-50, -50)])
+simulate(action = "circle", estimate=True, save_name="trajectory_q2.png", add_landmarks=[])
 

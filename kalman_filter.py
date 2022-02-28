@@ -106,7 +106,7 @@ class PlaneSimulator():
 
 
 
-def simulate(action = "zero", estimate=False, accident_times=[], counter_size=20, save_name="trajectory.png", save_velocity=True):
+def simulate(action = "zero", estimate=False, accident_times=[], counter_size=20, save_name="trajectory.png", save_velocity=False):
     true_all_xs = []
     true_all_ys = []
     obs_all_xs = []
@@ -135,6 +135,10 @@ def simulate(action = "zero", estimate=False, accident_times=[], counter_size=20
             u = np.array([[np.sin(i), np.cos(i)]]).T
         else:
             u = np.array([[0, 0]]).T
+        if len(true_all_xs) == 0:
+            u = np.array([[0, 0]]).T
+        else:
+            u =  np.array([[-0.001*true_all_xs[-1], -0.0005*true_all_ys[-1]]]).T
         simulator.forward_step(u)
         if estimate:
             simulator.estimator.update_motion(u)
@@ -183,7 +187,7 @@ def simulate(action = "zero", estimate=False, accident_times=[], counter_size=20
     plt.savefig(save_name, dpi=300)
     plt.close()
 
-    if save_velocity:
+    if save_velocity and estimate:
         fig = plt.figure()
         ax = plt.axes(projection='3d')
         time = list(range(len(est_all_vx)))
@@ -203,21 +207,22 @@ def simulate_f(no_planes=2, n_estimators=10, save_name="data_assoc.png"):
 
     variances = {str(x): []  for x in range(no_planes)}
 
-    x , y = random.randint(0,100) , random.randint(0,100)
+    # x , y = random.randint(0,100) , random.randint(0,100)
     # vx , vy = random.randint(-10,10) , random.randint(-10,10)
     for  i in range(no_planes):
+        x , y = random.randint(0,20) , random.randint(0,20)
         # if  i == 0:
         #     x, y = 0, 0
         # else:
         #     x, y = 1000, 1000
         # x , y = random.randint(0,10) , random.randint(0,10)
         # vx , vy = random.randint(-1,1) , random.randint(-1,1)
-        vx , vy = random.randint(-10,10) , random.randint(-10,10)
+        vx , vy = np.random.uniform(0, 1) , np.random.uniform(0, 1)
         simulator =  PlaneSimulator(x, y, vx, vy, n_estimators=n_estimators)
         simulator.set_kalman_filter()
         simulators.append(simulator)
 
-    for time in range(50):
+    for time in range(200):
         print(time)
         u = np.array([[np.sin(time), np.cos(time)]]).T
         observations  =  []
@@ -286,14 +291,14 @@ def simulate_f(no_planes=2, n_estimators=10, save_name="data_assoc.png"):
         ax.plot(true_all_xs[str(i)], true_all_ys[str(i)], label="True Trajectory {}".format(i+1))
 
         ax.plot(est_all_xs[str(i)], est_all_ys[str(i)], label="Estimated Trajectory {}".format(i+1))
-        # for j in range(len(variances[str(i)])):
-        #     ell = Ellipse(xy=(est_all_xs[str(i)][j], est_all_ys[str(i)][j]),
-        #                 width=variances[str(i)][j][0, 0], height=variances[str(i)][j][1, 1],
-        #                 angle=np.rad2deg(np.arctan(variances[str(i)][j][0, 1]/np.sqrt(variances[str(i)][j][0, 0] * variances[str(i)][j][1, 1]))),
-        #                 alpha=0.2
-        #             )
-        #     # ell.set_facecolor('b', )
-        #     ax.add_artist(ell)
+        for j in range(len(variances[str(i)])):
+            ell = Ellipse(xy=(est_all_xs[str(i)][j], est_all_ys[str(i)][j]),
+                        width=variances[str(i)][j][0, 0], height=variances[str(i)][j][1, 1],
+                        angle=np.rad2deg(np.arctan(variances[str(i)][j][0, 1]/np.sqrt(variances[str(i)][j][0, 0] * variances[str(i)][j][1, 1]))),
+                        alpha=0.2
+                    )
+            # ell.set_facecolor('b', )
+            ax.add_artist(ell)
         # break
     plt.legend()
     plt.savefig(save_name, dpi=300)
@@ -307,16 +312,16 @@ def simulate_f(no_planes=2, n_estimators=10, save_name="data_assoc.png"):
 
 
 
-# # ## part a
+# # # ## part a
 # simulate(save_name="trajectory_parta.png")
 
-# # ## part b and c
+# # # ## part b and c
 # simulate(action = "sine-cos", estimate=True, save_name="trajectory_partbc_elip.png")
 
-# # ## part d and e
-simulate(action = "sine-cos", estimate=True, accident_times=[10, 60], counter_size=20, save_name="trajectory_partde.png", save_velocity=True)
+# # # ## part d and e
+# simulate(action = "sine-cos", estimate=True, accident_times=[10, 60], counter_size=20, save_name="trajectory_partde.png", save_velocity=True)
 
 
 
 
-# simulate_f(no_planes=5, n_estimators=10)
+simulate_f(no_planes=5, n_estimators=10)
